@@ -1,0 +1,44 @@
+name: Build Vega Productions Multisynth
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  windows:
+    name: Windows VST3
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Vega Productions Multisynth
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DVEGA_TESTS=ON
+      - name: Build Vega Productions Multisynth
+        run: cmake --build build --config Release --target VegaMultisynth_VST3 VegaSynthTest
+      - name: Sound self-test (every preset + engine)
+        run: build\VegaSynthTest_artefacts\Release\VegaSynthTest.exe
+      - name: Package Vega Productions Multisynth
+        shell: pwsh
+        run: Compress-Archive -Path "build/VegaMultisynth_artefacts/Release/VST3/Vega Productions Multisynth.vst3" -DestinationPath VegaProductions-Multisynth-VST3-win64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VegaProductions-Multisynth-Windows-VST3
+          path: VegaProductions-Multisynth-VST3-win64.zip
+
+  macos:
+    name: macOS VST3 + AU (Universal)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Vega Productions Multisynth
+        run: cmake -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+      - name: Build Vega Productions Multisynth
+        run: cmake --build build --config Release --target VegaMultisynth_VST3 VegaMultisynth_AU --parallel
+      - name: Sign and package Vega Productions Multisynth
+        run: |
+          codesign --force --deep -s - "build/VegaMultisynth_artefacts/Release/VST3/Vega Productions Multisynth.vst3"
+          codesign --force --deep -s - "build/VegaMultisynth_artefacts/Release/AU/Vega Productions Multisynth.component"
+          mkdir -p dist-VegaMultisynth
+          cp -R "build/VegaMultisynth_artefacts/Release/VST3/Vega Productions Multisynth.vst3" "build/VegaMultisynth_artefacts/Release/AU/Vega Productions Multisynth.component" dist-VegaMultisynth/
+          cd dist-VegaMultisynth && zip -r -y ../VegaProductions-Multisynth-macOS.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VegaProductions-Multisynth-macOS-VST3-AU
+          path: VegaProductions-Multisynth-macOS.zip
