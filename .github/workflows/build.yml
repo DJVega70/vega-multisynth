@@ -42,3 +42,33 @@ jobs:
         with:
           name: VegaProductions-Multisynth-macOS-VST3-AU
           path: VegaProductions-Multisynth-macOS.zip
+
+  release:
+    name: Publish release
+    needs: [windows, macos]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Zip each plugin
+        run: |
+          cd dist
+          for d in */; do
+            d="${d%/}"
+            inner=$(ls "$d"/*.zip 2>/dev/null | head -1)
+            if [ -n "$inner" ] && [ "$(ls -A "$d" | wc -l)" -eq 1 ]; then mv "$inner" "$d.zip"; else (cd "$d" && zip -r -y "../$d.zip" .); fi
+          done
+          ls -la *.zip
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Vega Productions - build ${{ github.run_number }}
+          make_latest: true
+          body: |
+            Download the **Windows-VST3** zip for FL Studio on Windows, or the **macOS-VST3-AU** zip for your Mac.
+            Unzip, then copy the `.vst3` to `C:\Program Files\Common Files\VST3\` (Windows) or `~/Library/Audio/Plug-Ins/VST3/` (Mac).
+          files: dist/*.zip
